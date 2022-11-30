@@ -1,0 +1,3 @@
+/Users/ernsjus/Dev/openMPITest/cmake-build-debug/CMakeFiles/openMPITest.dir
+/Users/ernsjus/Dev/openMPITest/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/ernsjus/Dev/openMPITest/cmake-build-debug/CMakeFiles/rebuild_cache.dir
