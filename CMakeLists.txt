@@ -7,6 +7,7 @@ find_package(MPI REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(OpenCV REQUIRED)
 include_directories( ${OpenCV_INCLUDE_DIRS} )
+include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
 add_executable(openMPITest main.cpp)
 
