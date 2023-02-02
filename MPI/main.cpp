@@ -20,42 +20,25 @@ cv::Mat rgbToGray(cv::Mat img) {
     return newImg;
 }
 
-void applyBlurToPixel(const cv::Mat &img, cv::Mat &newImg, int i, int j, int start_row) {
-    bool isLeftSide = j == 0;
-    bool isRightSide = j == img.cols - 1;
-    bool isTop = i == 0;
-    bool isBottom = i == img.rows - 1;
+void applyBlurToPixel(const cv::Mat &img, cv::Mat &newImg, int i, int j, int strength, int start_row) {
 
-    bool isCorner = (isLeftSide and isTop) or (isRightSide and isTop) or (isLeftSide and isBottom) or
-                    (isRightSide and isBottom);
-    bool isEdge = isTop xor isBottom xor isRightSide xor isLeftSide;
-
-    double divisor;
-    if (isCorner) {
-        divisor = 4;
-    } else if (isEdge) {
-        divisor = 6;
-    } else {
-        divisor = 9;
-    }
-
+    double divisor = 0;
     double sum = 0;
 
-    int intensity = 1;
-
-    for (int l = -intensity; l < intensity + 1; ++l) {
+    for (int l = -strength; l <= strength; ++l) {
 
         if (i + l < 0 or i + l > img.rows - 1) {
             continue;
         }
 
-        for (int m = -intensity; m < intensity + 1; ++m) {
+        for (int m = -strength; m <= strength; ++m) {
 
             if (j + m < 0 or j + m > img.cols - 1) {
                 continue;
             }
 
             sum += img.at<cv::Vec<uchar, 1>>(i + l, j + m)[0];
+            divisor++;
 
         }
     }
@@ -63,13 +46,13 @@ void applyBlurToPixel(const cv::Mat &img, cv::Mat &newImg, int i, int j, int sta
     newImg.at<cv::Vec<uchar, 1>>(i - start_row, j)[0] = sum / divisor;
 }
 
-cv::Mat blur(cv::Mat &img, int start_row, int end_row) {
+cv::Mat blur(cv::Mat &img, int start_row, int end_row, int strength) {
     cv::Mat newImg = cv::Mat(end_row - start_row, img.cols, CV_8UC1, cv::Scalar(0));
 
     for (int i = start_row; i < end_row; ++i) {
         for (int j = 0; j < img.cols; ++j) {
 
-            applyBlurToPixel(img, newImg, i, j, start_row);
+            applyBlurToPixel(img, newImg, i, j, strength, start_row);
 
         }
     }
@@ -77,7 +60,7 @@ cv::Mat blur(cv::Mat &img, int start_row, int end_row) {
 }
 
 void grayscaleBlur() {
-    std::string image_folder = "/Users/ernsjus/Dev/openMPITest/images";
+    std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
     std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
 
     int rank, size;
@@ -128,7 +111,7 @@ void grayscaleBlur() {
     int start_row = rank * stripe_height;
     int end_row = start_row + stripe_height;
 
-    cv::Mat blur_part = blur(gray_image, start_row, end_row);
+    cv::Mat blur_part = blur(gray_image, start_row, end_row, 10);
 
     if (rank == 0) {
         blurred_image = cv::Mat(height, width, CV_8UC1, cv::Scalar(0));
@@ -138,17 +121,15 @@ void grayscaleBlur() {
                blurred_image.data, send_size, MPI_UNSIGNED_CHAR,
                0, MPI_COMM_WORLD);
 
-
     if (rank == 0) {
         imwrite(image_folder + "/output/gray.png", gray_image);
         imwrite(image_folder + "/output/gray&blur.png", blurred_image);
     }
 
-
 }
 
 int main(int argc, char **argv) {
-    std::ofstream myFile("/Users/ernsjus/Dev/openMPITest/mpi_8_natureMega.csv");
+    std::ofstream myFile("/Users/ernsjus/Dev/parallel/mpi_8_natureMega.csv");
 
     MPI_Init(&argc, &argv);
 

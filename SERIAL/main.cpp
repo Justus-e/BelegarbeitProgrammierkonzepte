@@ -4,40 +4,25 @@
 #include <omp.h>
 #include <fstream>
 
-void applyBlurToPixel(cv::Mat &img, cv::Mat &newImg, int i, int j) {
-    bool isLeftSide = j == 0;
-    bool isRightSide = j == img.cols - 1;
-    bool isTop = i == 0;
-    bool isBottom = i == img.rows - 1;
-
-    bool isCorner = (isLeftSide and isTop) or (isRightSide and isTop) or (isLeftSide and isBottom) or
-                    (isRightSide and isBottom);
-    bool isEdge = isTop xor isBottom xor isRightSide xor isLeftSide;
-
-    double divisor;
-    if (isCorner) {
-        divisor = 4;
-    } else if (isEdge) {
-        divisor = 6;
-    } else {
-        divisor = 9;
-    }
+void applyBlurToPixel(cv::Mat &img, cv::Mat &newImg, int i, int j, int strength) {
+    double divisor = 0;
 
     double sum = 0;
 
-    for (int l = -1; l < 2; ++l) {
+    for (int l = -strength; l <= strength; ++l) {
 
         if (i + l < 0 or i + l > img.rows - 1) {
             continue;
         }
 
-        for (int m = -1; m < 2; ++m) {
+        for (int m = -strength; m <= strength; ++m) {
 
             if (j + m < 0 or j + m > img.cols - 1) {
                 continue;
             }
 
             sum += img.at<cv::Vec<uchar, 1>>(i + l, j + m)[0];
+            divisor++;
 
         }
     }
@@ -45,13 +30,13 @@ void applyBlurToPixel(cv::Mat &img, cv::Mat &newImg, int i, int j) {
     newImg.at<cv::Vec<uchar, 1>>(i, j)[0] = sum / divisor;
 }
 
-cv::Mat blur(cv::Mat &img) {
+cv::Mat blur(cv::Mat &img, int strength) {
     cv::Mat newImg = cv::Mat(img.rows, img.cols, CV_8UC1, cv::Scalar(0));
 
     for (int i = 0; i < img.rows; ++i) {
         for (int j = 0; j < img.cols; ++j) {
 
-            applyBlurToPixel(img, newImg, i, j);
+            applyBlurToPixel(img, newImg, i, j, strength);
 
         }
     }
@@ -78,7 +63,9 @@ cv::Mat rgbToGray(cv::Mat &img) {
 
 int main() {
 
-    std::ofstream myFile("/Users/ernsjus/Dev/openMPITest/seriell_haroldMedium.csv");
+    std::ofstream myFile("/Users/ernsjus/Dev/parallel/seriell_natureMega.csv");
+    std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
+    std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
 
 
     for (int i = 0; i < 1000; ++i) {
@@ -86,9 +73,6 @@ int main() {
 
         double t0 = omp_get_wtime(); // start time
 
-        std::string image_folder = "/Users/ernsjus/Dev/openMPITest/images";
-
-        std::string image_path = image_folder + "/human/2.harold_medium.jpg";
         cv::Mat img = imread(image_path, cv::IMREAD_COLOR);
         if (img.empty()) {
             std::cout << "Could not read the image: " << image_path << std::endl;
@@ -96,7 +80,7 @@ int main() {
         }
 
         cv::Mat grayImg = rgbToGray(img);
-        cv::Mat bluredImg = blur(grayImg);
+        cv::Mat bluredImg = blur(grayImg, 10);
 
         imwrite(image_folder + "/output/gray.png", grayImg);
         imwrite(image_folder + "/output/gray&blur.png", bluredImg);
@@ -108,7 +92,6 @@ int main() {
 
     myFile.flush();
     myFile.close();
-
 
     return 0;
 }
