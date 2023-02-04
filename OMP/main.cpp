@@ -4,7 +4,7 @@
 #include <omp.h>
 #include <fstream>
 
-void applyBlurToPixel(cv::Mat &img, cv::Mat &newImg, int i, int j, int strength) {
+uchar applyBlurToPixel(cv::Mat &img, int i, int j, int strength) {
 
     double divisor = 0;
 
@@ -28,7 +28,7 @@ void applyBlurToPixel(cv::Mat &img, cv::Mat &newImg, int i, int j, int strength)
         }
     }
 
-    newImg.at<cv::Vec<uchar, 1>>(i, j)[0] = sum / divisor;
+    return sum / divisor;
 }
 
 
@@ -39,7 +39,7 @@ cv::Mat blur(cv::Mat &img, int strength) {
     for (int i = 0; i < img.rows; ++i) {
         for (int j = 0; j < img.cols; ++j) {
 
-            applyBlurToPixel(img, newImg, i, j, strength);
+            newImg.at<cv::Vec<uchar, 1>>(i, j)[0] = applyBlurToPixel(img, i, j, strength);
 
         }
     }

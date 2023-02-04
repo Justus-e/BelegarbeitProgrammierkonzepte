@@ -4,7 +4,7 @@
 #include <omp.h>
 #include <fstream>
 
-void applyBlurToPixel(cv::Mat &img, cv::Mat &newImg, int i, int j, int strength) {
+uchar applyBlurToPixel(cv::Mat &img, int i, int j, int strength) {
     double divisor = 0;
 
     double sum = 0;
@@ -27,7 +27,7 @@ void applyBlurToPixel(cv::Mat &img, cv::Mat &newImg, int i, int j, int strength)
         }
     }
 
-    newImg.at<cv::Vec<uchar, 1>>(i, j)[0] = sum / divisor;
+    return sum / divisor;
 }
 
 cv::Mat blur(cv::Mat &img, int strength) {
@@ -36,7 +36,7 @@ cv::Mat blur(cv::Mat &img, int strength) {
     for (int i = 0; i < img.rows; ++i) {
         for (int j = 0; j < img.cols; ++j) {
 
-            applyBlurToPixel(img, newImg, i, j, strength);
+            newImg.at<cv::Vec<uchar, 1>>(i, j)[0] = applyBlurToPixel(img, i, j, strength);
 
         }
     }
@@ -63,9 +63,9 @@ cv::Mat rgbToGray(cv::Mat &img) {
 
 int main() {
 
-    std::ofstream myFile("/Users/ernsjus/Dev/parallel/seriell_natureMega.csv");
+    std::ofstream myFile("/Users/ernsjus/Dev/parallel/seriell_diceMicro.csv");
     std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
-    std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
+    std::string image_path = image_folder + "/dice/1.dice_micro.png";
     int blur_strength = 10;
 
 

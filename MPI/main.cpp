@@ -20,7 +20,7 @@ cv::Mat rgbToGray(cv::Mat img) {
     return newImg;
 }
 
-void applyBlurToPixel(const cv::Mat &img, cv::Mat &newImg, int i, int j, int strength, int start_row) {
+uchar applyBlurToPixel(const cv::Mat &img, int i, int j, int strength) {
 
     double divisor = 0;
     double sum = 0;
@@ -43,7 +43,7 @@ void applyBlurToPixel(const cv::Mat &img, cv::Mat &newImg, int i, int j, int str
         }
     }
 
-    newImg.at<cv::Vec<uchar, 1>>(i - start_row, j)[0] = sum / divisor;
+    return sum / divisor;
 }
 
 cv::Mat blur(cv::Mat &img, int start_row, int end_row, int strength) {
@@ -52,14 +52,14 @@ cv::Mat blur(cv::Mat &img, int start_row, int end_row, int strength) {
     for (int i = start_row; i < end_row; ++i) {
         for (int j = 0; j < img.cols; ++j) {
 
-            applyBlurToPixel(img, newImg, i, j, strength, start_row);
+            newImg.at<cv::Vec<uchar, 1>>(i - start_row, j)[0] = applyBlurToPixel(img, i, j, strength);
 
         }
     }
     return newImg;
 }
 
-void grayscaleBlur(int blur_strength, std::string image_folder, std::string image_path) {
+void grayscaleBlur(int blur_strength, const std::string& image_folder, const std::string& image_path) {
 
     int rank, size;
 
@@ -86,17 +86,15 @@ void grayscaleBlur(int blur_strength, std::string image_folder, std::string imag
 
     int rows_per_process[size];
     int sendsize_per_process[size];
-    //int row_displacements[size];
     int sendsize_displacements[size];
     int stripe_height = height / size;
     int total_rows = 0;
 
     if (blur_strength > stripe_height) {
-        std::cout << "no good\n";
+        std::cout << "Blur strength should not be bigger than the stripe height. This will lead to wrong result.\n";
     }
 
     for (int i = 0; i < size; ++i) {
-        //row_displacements[i] = total_rows;
         sendsize_displacements[i] = total_rows * width * 3;
         rows_per_process[i] = stripe_height + (i < (height % size));
         sendsize_per_process[i] = rows_per_process[i] * width * 3;
@@ -166,7 +164,7 @@ void grayscaleBlur(int blur_strength, std::string image_folder, std::string imag
 }
 
 int main(int argc, char **argv) {
-    std::ofstream myFile("/Users/ernsjus/Dev/parallel/mpi_8_natureMega.csv");
+    std::ofstream myFile("/Users/ernsjus/Dev/parallel/mpi_10_natureMega.csv");
     std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
     std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
     int blur_strength = 10;
