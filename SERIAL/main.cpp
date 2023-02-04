@@ -66,9 +66,10 @@ int main() {
     std::ofstream myFile("/Users/ernsjus/Dev/parallel/seriell_natureMega.csv");
     std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
     std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
+    int blur_strength = 10;
 
 
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 500; ++i) {
         std::cout << i << "\n";
 
         double t0 = omp_get_wtime(); // start time
@@ -80,10 +81,10 @@ int main() {
         }
 
         cv::Mat grayImg = rgbToGray(img);
-        cv::Mat bluredImg = blur(grayImg, 10);
+        cv::Mat blurredImg = blur(grayImg, blur_strength);
 
         imwrite(image_folder + "/output/gray.png", grayImg);
-        imwrite(image_folder + "/output/gray&blur.png", bluredImg);
+        imwrite(image_folder + "/output/gray&blur.png", blurredImg);
 
         double t1 = omp_get_wtime();  // end time
         myFile << t1 - t0 << "\n";

@@ -64,37 +64,35 @@ cv::Mat rgbToGray(cv::Mat &img) {
     return newImg;
 }
 
-
-void grayscaleAndBlur() {
-    std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
-
-    std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
-    cv::Mat img = imread(image_path, cv::IMREAD_COLOR);
-    if (img.empty()) {
-        std::cout << "Could not read the image: " << image_path << std::endl;
-        return;
-    }
-
-    omp_set_num_threads(8);
-
-    cv::Mat grayImg = rgbToGray(img);
-
-    cv::Mat bluredImg = blur(grayImg, 10);
-
-    imwrite(image_folder + "/output/gray.png", grayImg);
-    imwrite(image_folder + "/output/gray&blur.png", bluredImg);
-}
-
-int main(int argc, char **argv) {
+int main() {
     std::ofstream myFile("/Users/ernsjus/Dev/parallel/omp_8_natureMega.csv");
+    std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
+    std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
+    int blur_strength = 10;
+    int threads = 8;
 
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 500; ++i) {
         std::cout << i << "\n";
         double start = omp_get_wtime();
-        grayscaleAndBlur();
+
+        cv::Mat img = imread(image_path, cv::IMREAD_COLOR);
+        if (img.empty()) {
+            std::cout << "Could not read the image: " << image_path << std::endl;
+            return 1;
+        }
+        omp_set_num_threads(threads);
+
+        cv::Mat grayImg = rgbToGray(img);
+
+        cv::Mat blurredImg = blur(grayImg, blur_strength);
+
+        imwrite(image_folder + "/output/gray.png", grayImg);
+        imwrite(image_folder + "/output/gray&blur.png", blurredImg);
+
         double end = omp_get_wtime();
         myFile << end - start << "\n";
     }
+
     myFile.flush();
     myFile.close();
 

@@ -59,9 +59,7 @@ cv::Mat blur(cv::Mat &img, int start_row, int end_row, int strength) {
     return newImg;
 }
 
-void grayscaleBlur() {
-    std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
-    std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
+void grayscaleBlur(int blur_strength, std::string image_folder, std::string image_path) {
 
     int rank, size;
 
@@ -86,40 +84,79 @@ void grayscaleBlur() {
     MPI_Bcast(&width, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&height, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    gray_image = cv::Mat(height, width, CV_8UC1, cv::Scalar(0));
-
+    int rows_per_process[size];
+    int sendsize_per_process[size];
+    //int row_displacements[size];
+    int sendsize_displacements[size];
     int stripe_height = height / size;
+    int total_rows = 0;
 
-    int send_size = width * (stripe_height) * 3;
+    if (blur_strength > stripe_height) {
+        std::cout << "no good\n";
+    }
 
-    cv::Mat part_image = cv::Mat(stripe_height, width, CV_8UC3);
+    for (int i = 0; i < size; ++i) {
+        //row_displacements[i] = total_rows;
+        sendsize_displacements[i] = total_rows * width * 3;
+        rows_per_process[i] = stripe_height + (i < (height % size));
+        sendsize_per_process[i] = rows_per_process[i] * width * 3;
+        total_rows += rows_per_process[i];
+    }
 
-    MPI_Scatter(full_image.data, send_size, MPI_UNSIGNED_CHAR,
-                part_image.data, send_size, MPI_UNSIGNED_CHAR,
-                0, MPI_COMM_WORLD); // from process #0
+    cv::Mat part_image = cv::Mat(rows_per_process[rank], width, CV_8UC3);
+
+    MPI_Scatterv(full_image.data, sendsize_per_process, sendsize_displacements, MPI_UNSIGNED_CHAR,
+                 part_image.data, sendsize_per_process[rank], MPI_UNSIGNED_CHAR,
+                 0, MPI_COMM_WORLD); // from process #0
 
     cv::Mat gray_part = rgbToGray(part_image);
 
-    send_size = send_size / 3;
+    gray_image = cv::Mat(height, width, CV_8UC1, cv::Scalar(0));
 
-    MPI_Gather(gray_part.data, send_size, MPI_UNSIGNED_CHAR,
-               gray_image.data, send_size, MPI_UNSIGNED_CHAR,
-               0, MPI_COMM_WORLD);
+    for (int i = 0; i < size; ++i) {
+        sendsize_per_process[i] = sendsize_per_process[i] / 3;
+        sendsize_displacements[i] = sendsize_displacements[i] / 3;
+    }
 
-    MPI_Bcast(gray_image.data, send_size * size, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(gray_part.data, sendsize_per_process[rank], MPI_UNSIGNED_CHAR,
+                gray_image.data, sendsize_per_process, sendsize_displacements, MPI_UNSIGNED_CHAR,
+                0, MPI_COMM_WORLD);
 
-    int start_row = rank * stripe_height;
-    int end_row = start_row + stripe_height;
+    if (rank > 0) {
+        MPI_Send(gray_part.data, blur_strength * width, MPI_UNSIGNED_CHAR, rank - 1, 1, MPI_COMM_WORLD);
+    }
 
-    cv::Mat blur_part = blur(gray_image, start_row, end_row, 10);
+    if (rank < size - 1) {
+        cv::Mat padding = cv::Mat(blur_strength, width, CV_8UC1, cv::Scalar(0));
+        MPI_Recv(padding.data, blur_strength * width, MPI_UNSIGNED_CHAR, rank + 1, 1, MPI_COMM_WORLD, nullptr);
+        MPI_Send(gray_part.data + (sendsize_per_process[rank] - blur_strength * width), blur_strength * width,
+                 MPI_UNSIGNED_CHAR, rank + 1, 2, MPI_COMM_WORLD);
+        gray_part.push_back(padding);
+    }
+
+    if (rank > 0) {
+        cv::Mat padding = cv::Mat(blur_strength, width, CV_8UC1, cv::Scalar(0));
+        MPI_Recv(padding.data, blur_strength * width, MPI_UNSIGNED_CHAR, rank - 1, 2, MPI_COMM_WORLD, nullptr);
+        padding.push_back(gray_part);
+
+        gray_part = cv::Mat(padding);
+    }
+
+    int start_row = 0;
+    if (rank > 0) {
+        start_row = blur_strength;
+    }
+    int end_row = start_row + rows_per_process[rank];
+
+    cv::Mat blur_part = blur(gray_part, start_row, end_row, blur_strength);
 
     if (rank == 0) {
         blurred_image = cv::Mat(height, width, CV_8UC1, cv::Scalar(0));
     }
 
-    MPI_Gather(blur_part.data, send_size, MPI_UNSIGNED_CHAR,
-               blurred_image.data, send_size, MPI_UNSIGNED_CHAR,
-               0, MPI_COMM_WORLD);
+    MPI_Gatherv(blur_part.data, sendsize_per_process[rank], MPI_UNSIGNED_CHAR,
+                blurred_image.data, sendsize_per_process, sendsize_displacements, MPI_UNSIGNED_CHAR,
+                0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         imwrite(image_folder + "/output/gray.png", gray_image);
@@ -130,6 +167,9 @@ void grayscaleBlur() {
 
 int main(int argc, char **argv) {
     std::ofstream myFile("/Users/ernsjus/Dev/parallel/mpi_8_natureMega.csv");
+    std::string image_folder = "/Users/ernsjus/Dev/parallel/images";
+    std::string image_path = image_folder + "/nature/4.nature_mega.jpeg";
+    int blur_strength = 10;
 
     MPI_Init(&argc, &argv);
 
@@ -137,14 +177,14 @@ int main(int argc, char **argv) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 500; ++i) {
         double start, end;
         if (rank == 0) {
             std::cout << i << "\n";
             start = MPI_Wtime();
         }
 
-        grayscaleBlur();
+        grayscaleBlur(blur_strength, image_folder, image_path);
 
         if (rank == 0) {
             end = MPI_Wtime();
